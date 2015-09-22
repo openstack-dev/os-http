@@ -13,9 +13,17 @@
 # under the License.
 
 import argparse
+import json
 import logging
-import pprint
 import sys
+
+try:
+    import pygments
+    import pygments.formatters
+    import pygments.lexers
+    import pygments.util
+except ImportError:
+    pygments = None
 
 from keystoneauth1 import adapter
 from keystoneauth1 import loading
@@ -93,4 +101,28 @@ def main():
                         opts.method.upper(),
                         headers=headers)
 
-    pprint.pprint(resp.json())
+    # I can see no way to get the HTTP version
+    headers = ["HTTP/1.1 %d %s" % (resp.status_code, resp.reason)]
+    headers.extend('%s: %s' % k for k in resp.headers.items())
+    headers = '\r\n'.join(headers)
+
+    if 'json' in resp.headers.get('Content-Type', '').lower():
+        body = json.dumps(resp.json(), sort_keys=True, indent=4)
+    else:
+        body = resp.content
+
+    if pygments:
+        mime = resp.headers.get('Content-Type')
+        http_lexer = pygments.lexers.get_lexer_by_name('http')
+        formatter = pygments.formatters.get_formatter_by_name('console')
+
+        try:
+            body_lexer = pygments.lexers.get_lexer_for_mimetype(mime)
+        except pygments.util.ClassNotFound:
+            body_lexer = pygments.lexers.get_lexer_by_name('text')
+
+        headers = pygments.highlight(headers, http_lexer, formatter)
+        body = pygments.highlight(body, body_lexer, formatter)
+
+    print(headers)
+    print(body)
