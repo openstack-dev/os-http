@@ -99,7 +99,8 @@ def main():
 
     resp = adap.request(opts.url,
                         opts.method.upper(),
-                        headers=headers)
+                        headers=headers,
+                        raise_exc=False)
 
     # I can see no way to get the HTTP version
     headers = ["HTTP/1.1 %d %s" % (resp.status_code, resp.reason)]
