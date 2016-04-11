@@ -12,6 +12,8 @@
 # License for the specific language governing permissions and limitations
 # under the License.
 
+from __future__ import print_function
+
 import argparse
 import json
 import logging
@@ -26,6 +28,7 @@ except ImportError:
     pygments = None
 
 from keystoneauth1 import adapter
+from keystoneauth1 import exceptions
 from keystoneauth1 import loading
 
 LOG = logging.getLogger(__name__)
@@ -79,13 +82,13 @@ def main():
         auth=auth,
         user_agent='os-http')
 
-    adap = adapter.Adapter(session=session,
-                           service_type=opts.os_service_type,
-                           service_name=opts.os_service_name,
-                           interface=opts.os_interface,
-                           region_name=opts.os_region_name,
-                           version=opts.os_api_version,
-                           logger=LOG)
+    service_params = {'service_type': opts.os_service_type,
+                      'service_name': opts.os_service_name,
+                      'interface': opts.os_interface,
+                      'region_name': opts.os_region_name,
+                      'version': opts.os_api_version}
+
+    adap = adapter.Adapter(session=session, logger=LOG, **service_params)
 
     headers = {'Accept': 'application/json'}
 
@@ -97,10 +100,16 @@ def main():
             LOG.error("Unknown item: %s", item)
             sys.exit(1)
 
-    resp = adap.request(opts.url,
-                        opts.method.upper(),
-                        headers=headers,
-                        raise_exc=False)
+    try:
+        resp = adap.request(opts.url,
+                            opts.method.upper(),
+                            headers=headers,
+                            raise_exc=False)
+    except exceptions.EndpointNotFound:
+        query = ", ".join("%s=%s" % p for p in service_params.items() if p[1])
+        print("Failed to find an endpoint in the service catalog that matches "
+              "your query: %s" % query, file=sys.stderr)
+        sys.exit(1)
 
     # I can see no way to get the HTTP version
     headers = ["HTTP/1.1 %d %s" % (resp.status_code, resp.reason)]
