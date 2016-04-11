@@ -107,8 +107,8 @@ def main():
                             raise_exc=False)
     except exceptions.EndpointNotFound:
         query = ", ".join("%s=%s" % p for p in service_params.items() if p[1])
-        print("Failed to find an endpoint in the service catalog that matches "
-              "your query: %s" % query, file=sys.stderr)
+        LOG.error("Failed to find an endpoint in the service catalog that "
+                  "matches your query: %s", query)
         sys.exit(1)
 
     # I can see no way to get the HTTP version
