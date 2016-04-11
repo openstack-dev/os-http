@@ -10,7 +10,7 @@
 # License for the specific language governing permissions and limitations
 # under the License.
 
-from os_http import version
+import pbr.version
 
 
-__version__ = version.version_string
+version_string = pbr.version.VersionInfo('os_http').version_string()

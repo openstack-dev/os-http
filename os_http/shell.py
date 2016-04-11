@@ -30,11 +30,20 @@ except ImportError:
 from keystoneauth1 import adapter
 from keystoneauth1 import exceptions
 from keystoneauth1 import loading
-from keystoneauth1 import session as ksa_session
-
+from keystoneauth1 import session
 import os_client_config
+import pbr.version
+
+from os_http import version
 
 LOG = logging.getLogger(__name__)
+
+# FIXME(jamielennox): OCC should advertise its own version.
+# Fix: https://review.openstack.org/#/c/303913/
+try:
+    _occ_version = pbr.version.VersionInfo('os_client_config').version_string()
+except Exception:
+    _occ_version = "unknown"
 
 
 def main(argv=sys.argv[1:]):
@@ -73,7 +82,10 @@ def main(argv=sys.argv[1:]):
 
     # FIXME(jamielennox): These things should be handled by os-client-config
     adap.logger = LOG
-    adap.user_agent = 'os-http'
+    adap.user_agent = 'os-http/%s os-client-config/%s %s' % (
+        version.version_string,
+        _occ_version,
+        session.DEFAULT_USER_AGENT)
     adap.version = opts.os_api_version
 
     headers = {'Accept': 'application/json'}
