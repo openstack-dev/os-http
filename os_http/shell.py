@@ -135,7 +135,7 @@ def main():
     # I can see no way to get the HTTP version
     headers = ["HTTP/1.1 %d %s" % (resp.status_code, resp.reason)]
     headers.extend('%s: %s' % k for k in resp.headers.items())
-    headers = '\r\n'.join(headers)
+    headers = '\n'.join(headers)
 
     if 'json' in resp.headers.get('Content-Type', '').lower():
         body = json.dumps(resp.json(), sort_keys=True, indent=4)
@@ -145,7 +145,9 @@ def main():
     if pygments:
         mime = resp.headers.get('Content-Type')
         http_lexer = pygments.lexers.get_lexer_by_name('http')
-        formatter = pygments.formatters.get_formatter_by_name('console')
+
+        formatter_name = 'console' if sys.stdout.isatty() else 'text'
+        formatter = pygments.formatters.get_formatter_by_name(formatter_name)
 
         try:
             body_lexer = pygments.lexers.get_lexer_for_mimetype(mime)
@@ -156,4 +158,5 @@ def main():
         body = pygments.highlight(body, body_lexer, formatter)
 
     print(headers)
+    print('')
     print(body)
