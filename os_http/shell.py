@@ -105,6 +105,27 @@ def main():
                             opts.method.upper(),
                             headers=headers,
                             raise_exc=False)
+
+    except exceptions.EmptyCatalog:
+        message = ("Failed to find an endpoint because the returned service "
+                   "catalog is empty.")
+
+        try:
+            get_access = auth.get_access
+        except AttributeError:
+            # not an identity plugin - see if it specifies project_id
+            scoped = bool(adap.get_project_id())
+        else:
+            scoped = get_access(session).scoped
+
+        if not scoped:
+            message += (" This seems to be because the credentials provided "
+                        "result in an unscoped token. Please check your "
+                        "authentication credentials.")
+
+        LOG.error(message)
+        sys.exit(1)
+
     except exceptions.EndpointNotFound:
         query = ", ".join("%s=%s" % p for p in service_params.items() if p[1])
         LOG.error("Failed to find an endpoint in the service catalog that "
