@@ -30,32 +30,23 @@ except ImportError:
 from keystoneauth1 import adapter
 from keystoneauth1 import exceptions
 from keystoneauth1 import loading
+from keystoneauth1 import session as ksa_session
+
+import os_client_config
 
 LOG = logging.getLogger(__name__)
 
 
-def main():
+def main(argv=sys.argv[1:]):
     parser = argparse.ArgumentParser(
         description='Simple HTTP testing for Openstack')
-
-    loading.register_session_argparse_arguments(parser)
-    loading.register_auth_argparse_arguments(parser, sys.argv[1:])
 
     parser.add_argument('--debug',
                         action='store_true',
                         help='Enable debug output')
 
-    service_group = parser.add_argument_group('Service Options')
-    service_group.add_argument('--os-service-type',
-                               help='The service type to find in a catalog')
-    service_group.add_argument('--os-service-name',
-                               help='The service name to find in a catalog')
-    service_group.add_argument('--os-interface',
-                               help='The interface to contact')
-    service_group.add_argument('--os-region-name',
-                               help='The region name to find the service in')
-    service_group.add_argument('--os-api-version',
-                               help='The version of the api to request')
+    config = os_client_config.OpenStackConfig()
+    config.register_argparse_arguments(parser, argv)
 
     positional = parser.add_argument_group('Positional Arguments')
     positional.add_argument('method',
@@ -76,19 +67,14 @@ def main():
     else:
         logging.basicConfig(level=logging.WARN)
 
-    auth = loading.load_auth_from_argparse_arguments(opts)
-    session = loading.load_session_from_argparse_arguments(
-        opts,
-        auth=auth,
-        user_agent='os-http')
+    cloud = config.get_one_cloud(argparse=opts)
 
-    service_params = {'service_type': opts.os_service_type,
-                      'service_name': opts.os_service_name,
-                      'interface': opts.os_interface,
-                      'region_name': opts.os_region_name,
-                      'version': opts.os_api_version}
+    adap = cloud.get_session_client(None)
 
-    adap = adapter.Adapter(session=session, logger=LOG, **service_params)
+    # FIXME(jamielennox): These things should be handled by os-client-config
+    adap.logger = LOG
+    adap.user_agent = 'os-http'
+    adap.version = opts.os_api_version
 
     headers = {'Accept': 'application/json'}
 
@@ -111,12 +97,12 @@ def main():
                    "catalog is empty.")
 
         try:
-            get_access = auth.get_access
+            get_access = adap.session.auth.get_access
         except AttributeError:
             # not an identity plugin - see if it specifies project_id
             scoped = bool(adap.get_project_id())
         else:
-            scoped = get_access(session).scoped
+            scoped = get_access(adap.session).scoped
 
         if not scoped:
             message += (" This seems to be because the credentials provided "
@@ -127,7 +113,14 @@ def main():
         sys.exit(1)
 
     except exceptions.EndpointNotFound:
-        query = ", ".join("%s=%s" % p for p in service_params.items() if p[1])
+        service_params = ('service_type',
+                          'service_name',
+                          'interface',
+                          'region_name',
+                          'version')
+
+        query = ", ".join("%s=%s" % (p, getattr(adap, p))
+                          for p in service_params if getattr(adap, p))
         LOG.error("Failed to find an endpoint in the service catalog that "
                   "matches your query: %s", query)
         sys.exit(1)

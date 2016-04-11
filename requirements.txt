@@ -6,4 +6,5 @@ pbr<2.0,>=1.4
 Babel>=1.3
 
 keystoneauth1
+os-client-config
 pygments
