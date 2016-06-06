@@ -24,7 +24,6 @@ import uuid
 
 import fixtures
 from keystoneauth1 import fixture
-import requests_mock
 from testtools import matchers
 
 from os_http import shell
@@ -79,7 +78,7 @@ class TestInputs(base.TestCase):
             headers={'X-Subject-Token': self.token_id})
 
         # don't do any console formatting markup
-        m = fixtures.MockPatchObject(shell, 'formatter_name',  'text')
+        m = fixtures.MockPatchObject(shell, 'formatter_name', 'text')
         self.useFixture(m)
 
     def shell(self, *args, **kwargs):
@@ -123,8 +122,6 @@ class TestInputs(base.TestCase):
 
     def test_endpoint_not_found(self):
         path = '/%s' % uuid.uuid4().hex
-        public_url = '%s%s' % (PUBLIC_SERVICE_URL, path)
-        service_mock = self.requests_mock.get(public_url)
 
         e = self.assertRaises(shell.ErrorExit,
                               self.shell,
@@ -140,10 +137,7 @@ class TestInputs(base.TestCase):
         path = '/%s' % uuid.uuid4().hex
         public_url = '%s%s' % (PUBLIC_SERVICE_URL, path)
 
-        json_a = uuid.uuid4().hex
-        json_b = uuid.uuid4().hex
-
-        service_mock = self.requests_mock.get(public_url)
+        self.requests_mock.get(public_url)
 
         header_key = uuid.uuid4().hex
         header_val = uuid.uuid4().hex
@@ -156,5 +150,7 @@ class TestInputs(base.TestCase):
                    '--os-project-id', self.project_id,
                    '--os-user-id', self.user_id)
 
+        self.assertEqual('GET', self.requests_mock.last_request.method)
+        self.assertEqual(public_url, self.requests_mock.last_request.url)
         self.assertEqual(header_val,
                          self.requests_mock.last_request.headers[header_key])

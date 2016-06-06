@@ -27,9 +27,7 @@ try:
 except ImportError:
     pygments = None
 
-from keystoneauth1 import adapter
 from keystoneauth1 import exceptions
-from keystoneauth1 import loading
 from keystoneauth1 import session
 import os_client_config
 import pbr.version
