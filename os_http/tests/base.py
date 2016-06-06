@@ -15,9 +15,14 @@
 # License for the specific language governing permissions and limitations
 # under the License.
 
+import fixtures
 from oslotest import base
+from requests_mock.contrib import fixture
 
 
 class TestCase(base.BaseTestCase):
 
-    """Test case base class for all unit tests."""
+    def setUp(self):
+        super(TestCase, self).setUp()
+        self.requests_mock = self.useFixture(fixture.Fixture())
+        self.logger_mock = self.useFixture(fixtures.FakeLogger())

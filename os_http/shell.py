@@ -45,8 +45,44 @@ try:
 except Exception:
     _occ_version = "unknown"
 
+formatter_name = 'console' if sys.stdout.isatty() else 'text'
 
-def main(argv=sys.argv[1:]):
+
+class ErrorExit(Exception):
+
+    def __init__(self, message, exit_code=1):
+        self.message = message
+        self.exit_code = exit_code
+
+
+def format_resp(resp):
+    # I can see no way to get the HTTP version
+    headers = ["HTTP/1.1 %d %s" % (resp.status_code, resp.reason or '')]
+    headers.extend('%s: %s' % k for k in resp.headers.items())
+    headers = '\n'.join(headers)
+
+    if 'json' in resp.headers.get('Content-Type', '').lower():
+        body = json.dumps(resp.json(), sort_keys=True, indent=4)
+    else:
+        body = resp.content
+
+    if pygments:
+        mime = resp.headers.get('Content-Type')
+        http_lexer = pygments.lexers.get_lexer_by_name('http')
+        formatter = pygments.formatters.get_formatter_by_name(formatter_name)
+
+        try:
+            body_lexer = pygments.lexers.get_lexer_for_mimetype(mime)
+        except pygments.util.ClassNotFound:
+            body_lexer = pygments.lexers.get_lexer_by_name('text')
+
+        headers = pygments.highlight(headers, http_lexer, formatter)
+        body = pygments.highlight(body, body_lexer, formatter)
+
+    return '\n'.join([headers, '', body])
+
+
+def run(argv):
     parser = argparse.ArgumentParser(
         description='Simple HTTP testing for Openstack')
 
@@ -69,7 +105,7 @@ def main(argv=sys.argv[1:]):
                             nargs='*',
                             help='Additional items')
 
-    opts = parser.parse_args()
+    opts = parser.parse_args(argv)
 
     if opts.debug:
         logging.basicConfig(level=logging.DEBUG)
@@ -95,8 +131,7 @@ def main(argv=sys.argv[1:]):
             key, val = item.split(':', 1)
             headers[key] = val
         else:
-            LOG.error("Unknown item: %s", item)
-            sys.exit(1)
+            raise ErrorExit("Unknown item: %s" % item)
 
     try:
         resp = adap.request(opts.url,
@@ -121,8 +156,7 @@ def main(argv=sys.argv[1:]):
                         "result in an unscoped token. Please check your "
                         "authentication credentials.")
 
-        LOG.error(message)
-        sys.exit(1)
+        raise ErrorExit(message)
 
     except exceptions.EndpointNotFound:
         service_params = ('service_type',
@@ -133,35 +167,17 @@ def main(argv=sys.argv[1:]):
 
         query = ", ".join("%s=%s" % (p, getattr(adap, p))
                           for p in service_params if getattr(adap, p))
-        LOG.error("Failed to find an endpoint in the service catalog that "
-                  "matches your query: %s", query)
-        sys.exit(1)
+        raise ErrorExit("Failed to find an endpoint in the service catalog "
+                        "that matches your query: %s" % query)
 
-    # I can see no way to get the HTTP version
-    headers = ["HTTP/1.1 %d %s" % (resp.status_code, resp.reason)]
-    headers.extend('%s: %s' % k for k in resp.headers.items())
-    headers = '\n'.join(headers)
+    return format_resp(resp)
 
-    if 'json' in resp.headers.get('Content-Type', '').lower():
-        body = json.dumps(resp.json(), sort_keys=True, indent=4)
+
+def main(argv=sys.argv[1:]):
+    try:
+        output = run(argv)
+    except ErrorExit as e:
+        LOG.error(e.message)
+        sys.exit(e.exit_code)
     else:
-        body = resp.content
-
-    if pygments:
-        mime = resp.headers.get('Content-Type')
-        http_lexer = pygments.lexers.get_lexer_by_name('http')
-
-        formatter_name = 'console' if sys.stdout.isatty() else 'text'
-        formatter = pygments.formatters.get_formatter_by_name(formatter_name)
-
-        try:
-            body_lexer = pygments.lexers.get_lexer_for_mimetype(mime)
-        except pygments.util.ClassNotFound:
-            body_lexer = pygments.lexers.get_lexer_by_name('text')
-
-        headers = pygments.highlight(headers, http_lexer, formatter)
-        body = pygments.highlight(body, body_lexer, formatter)
-
-    print(headers)
-    print('')
-    print(body)
+        print(output)
