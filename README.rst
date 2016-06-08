@@ -13,10 +13,10 @@ that can make and display the response to HTTP requests against openstack
 services.
 
 * Free software: Apache license
-* Source: https://github.com/jamielennox/os-http
+* Source: https://git.openstack.org/cgit/openstack-dev/os-http
 
 .. _httpie: http://httpie.org/
-.. _keystoneauth: https://github.com/openstack/keystoneauth
+.. _keystoneauth: https://git.openstack.org/cgit/openstack/keystoneauth
 
 Usage
 -----
