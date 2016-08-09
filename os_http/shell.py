@@ -30,18 +30,12 @@ except ImportError:
 from keystoneauth1 import exceptions
 from keystoneauth1 import session
 import os_client_config
-import pbr.version
 
 from os_http import version
 
 LOG = logging.getLogger(__name__)
 
-# FIXME(jamielennox): OCC should advertise its own version.
-# Fix: https://review.openstack.org/#/c/303913/
-try:
-    _occ_version = pbr.version.VersionInfo('os_client_config').version_string()
-except Exception:
-    _occ_version = "unknown"
+_occ_version = os_client_config.__version__
 
 formatter_name = 'console' if sys.stdout.isatty() else 'text'
 
